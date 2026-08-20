@@ -120,3 +120,6 @@ git clone --depth=1 https://github.com/vernesong/OpenClash package/luci-app-open
 
 ./scripts/feeds update -i -a
 ./scripts/feeds install -a
+
+# 删除冲突的 Aquantia 网卡内核补丁
+rm -f target/linux/generic/hack-6.12/725-net-phy-aquantia-add-PHY_IDs-for-AQR112-variants.patch
