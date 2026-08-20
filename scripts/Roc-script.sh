@@ -118,5 +118,9 @@ git clone --depth=1 https://github.com/vernesong/OpenClash package/luci-app-open
 # 清理 PassWall 的 chnlist 规则文件
 # echo "baidu.com"  > package/luci-app-passwall/luci-app-passwall/root/usr/share/passwall/rules/chnlist
 
+# 修复 Rust 编译报错：强制禁用 download-ci-llvm
+sed -i 's/download-ci-llvm = true/download-ci-llvm = false/g' feeds/packages/lang/rust/Makefile 2>/dev/null || true
+find feeds/packages/lang/rust/ -name "*.toml" -exec sed -i 's/download-ci-llvm = true/download-ci-llvm = false/g' {} + 2>/dev/null || true
+
 ./scripts/feeds update -i -a
 ./scripts/feeds install -a
