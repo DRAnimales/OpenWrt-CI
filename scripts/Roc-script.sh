@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 # 修改默认IP & 固件名称 & 编译署名和时间
-sed -i 's/192.168.1.1/192.168.2.1/g' package/base-files/files/bin/config_generate
+sed -i 's/192.168.1.1/192.168.111.1/g' package/base-files/files/bin/config_generate
 sed -i "s/hostname='.*'/hostname='Roc'/g" package/base-files/files/bin/config_generate
 luci_system_js="feeds/luci/modules/luci-mod-status/htdocs/luci-static/resources/view/status/include/10_system.js"
 firmware_version_anchor="_('Firmware Version'), (L.isObject(boardinfo.release) ? boardinfo.release.description + ' / ' : '') + (luciversion || ''),"
@@ -19,15 +19,6 @@ sed -i "s#_('Firmware Version'), (L\.isObject(boardinfo\.release) ? boardinfo\.r
                 rel: 'noopener noreferrer'\n \
                 }, [ 'Built by Roc $(date "+%Y-%m-%d %H:%M:%S")' ])\n \
             ]),#" "$luci_system_js"
-
-# 调整NSS驱动q6_region内存区域预留大小（ipq6018.dtsi默认预留85MB，ipq6018-512m.dtsi默认预留55MB，带WiFi必须至少预留54MB，以下分别是改成预留16MB、32MB、64MB和96MB）
-# sed -i 's/reg = <0x0 0x4ab00000 0x0 0x[0-9a-f]\+>/reg = <0x0 0x4ab00000 0x0 0x01000000>/' target/linux/qualcommax/files/arch/arm64/boot/dts/qcom/ipq6018-512m.dtsi
-# sed -i 's/reg = <0x0 0x4ab00000 0x0 0x[0-9a-f]\+>/reg = <0x0 0x4ab00000 0x0 0x02000000>/' target/linux/qualcommax/files/arch/arm64/boot/dts/qcom/ipq6018-512m.dtsi
-# sed -i 's/reg = <0x0 0x4ab00000 0x0 0x[0-9a-f]\+>/reg = <0x0 0x4ab00000 0x0 0x04000000>/' target/linux/qualcommax/files/arch/arm64/boot/dts/qcom/ipq6018-512m.dtsi
-# sed -i 's/reg = <0x0 0x4ab00000 0x0 0x[0-9a-f]\+>/reg = <0x0 0x4ab00000 0x0 0x06000000>/' target/linux/qualcommax/files/arch/arm64/boot/dts/qcom/ipq6018-512m.dtsi
-
-# 调节IPQ60XX的1.5GHz频率电压(从0.9375V提高到0.95V，过低可能导致不稳定，过高可能增加功耗和发热，具体数值需要根据实际情况调整)
-# sed -i 's/opp-microvolt = <937500>;/opp-microvolt = <950000>;/' target/linux/qualcommax/patches-6.12/0038-v6.16-arm64-dts-qcom-ipq6018-add-1.5GHz-CPU-Frequency.patch
 
 # 移除要替换的包
 rm -rf feeds/luci/applications/luci-app-argon-config
@@ -115,12 +106,17 @@ git clone --depth=1 https://github.com/Openwrt-Passwall/openwrt-passwall package
 git clone --depth=1 https://github.com/Openwrt-Passwall/openwrt-passwall2 package/luci-app-passwall2
 git clone --depth=1 https://github.com/vernesong/OpenClash package/luci-app-openclash
 
-# 清理 PassWall 的 chnlist 规则文件
-# echo "baidu.com"  > package/luci-app-passwall/luci-app-passwall/root/usr/share/passwall/rules/chnlist
-
-# 修复 Rust 编译报错：强制禁用 download-ci-llvm
-sed -i 's/download-ci-llvm = true/download-ci-llvm = false/g' feeds/packages/lang/rust/Makefile 2>/dev/null || true
-find feeds/packages/lang/rust/ -name "*.toml" -exec sed -i 's/download-ci-llvm = true/download-ci-llvm = false/g' {} + 2>/dev/null || true
-
+# 更新并安装 Feeds（必须放在修改 Rust 前面）
 ./scripts/feeds update -i -a
 ./scripts/feeds install -a
+
+# === 核心修复：必须在 feeds update/install 之后执行修复命令 ===
+# 1. 强行将所有 Makefile 和 configs 里的 download-ci-llvm 替换为 false
+find feeds/packages/lang/rust/ -type f -exec sed -i 's/download-ci-llvm = true/download-ci-llvm = false/g' {} + 2>/dev/null || true
+find feeds/packages/lang/rust/ -type f -exec sed -i 's/download-ci-llvm=true/download-ci-llvm=false/g' {} + 2>/dev/null || true
+
+# 2. 强行向 Rust Makefile 写入禁用逻辑，覆盖编译生成阶段的默认行为
+if [ -f "feeds/packages/lang/rust/Makefile" ]; then
+    sed -i '/BOOTSTRAP_ARGS/s/download-ci-llvm=true/download-ci-llvm=false/g' feeds/packages/lang/rust/Makefile 2>/dev/null || true
+    echo 'BOOTSTRAP_ARGS += --set=llvm.download-ci-llvm=false' >> feeds/packages/lang/rust/Makefile
+fi
