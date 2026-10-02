@@ -333,6 +333,18 @@ if package_enabled luci-app-openclash; then
   clone_repository https://github.com/vernesong/OpenClash master package/luci-app-openclash
 fi
 
+if package_enabled luci-app-daed; then
+  clone_repository https://github.com/QiuSimons/luci-app-daed.git kix package/dae
+fi
+
+if package_enabled luci-app-nikki nikki; then
+  clone_repository https://github.com/nikkinikki-org/OpenWrt-nikki.git main package/nikki
+fi
+
+if package_enabled luci-app-momo momo; then
+  clone_repository https://github.com/nikkinikki-org/OpenWrt-momo.git main package/momo
+fi
+
 # 清理 PassWall 的 chnlist 规则文件
 # echo "baidu.com"  > package/luci-app-passwall/luci-app-passwall/root/usr/share/passwall/rules/chnlist
 
